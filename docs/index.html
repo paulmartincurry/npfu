@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NPFU — Side-Scrolling Beat ’Em Up</title>
+  <style>
+  :root {
+    --ink: #111;
+    --paper: #f1efe6;
+    --punk: #e63946;
+    --lime: #b6ff00;
+    --steel: #222;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--paper); font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+  .frame { max-width: 980px; margin: 0 auto; padding: 8px 8px 16px; }
+  .hud, .controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px; border: 2px solid var(--paper); background: var(--steel); }
+  .controls { margin-top: 8px; font-size: 12px; opacity: .85; }
+  .tag { background: var(--paper); color: var(--ink); padding: 2px 6px; font-weight: 700; margin-right: 6px; border: 1px solid var(--ink); }
+  .bar { width: 180px; height: 14px; border: 2px solid var(--paper); background: #333; display: inline-block; vertical-align: middle; margin-right: 12px; }
+  .bar .fill { height: 100%; width: 100%; background: var(--punk); }
+  .hud-right { display: flex; gap: 10px; align-items: center; }
+  #game { display: block; width: 100%; height: auto; border: 4px solid var(--paper); background: repeating-linear-gradient(0deg,#0f0f0f 0 14px,#141414 14px 28px); }
+  .rebel { filter: saturate(1.8) contrast(1.25); box-shadow: 0 0 22px var(--lime) inset; }
+  footer div { letter-spacing: .5px; }
+  a { color: var(--lime); }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <header class="hud">
+      <div class="hud-left">
+        <span class="tag">HP</span><div id="hpBar" class="bar"><div class="fill"></div></div>
+        <span class="tag">REBEL</span><div id="rebelBar" class="bar"><div class="fill"></div></div>
+      </div>
+      <div class="hud-right">
+        <span class="tag">WAVE</span><span id="waveNum">1</span>
+        <span class="tag">SCORE</span><span id="scoreNum">0</span>
+      </div>
+    </header>
+    <canvas id="game" width="960" height="540"></canvas>
+    <footer class="controls">
+      <div>← → to move • ↑ to jump • Z to jab • X to heavy • C to dash • V to Rebel</div>
+    </footer>
+  </div>
+  <script type="module">
+  class Input {
+    constructor() {
+      this.keys = new Set();
+      this.down = new Set();
+      this.up = new Set();
+      addEventListener("keydown", (e) => {
+        if (["ArrowLeft","ArrowRight","ArrowUp"," "].includes(e.key)) e.preventDefault();
+        if (!this.keys.has(e.key)) this.down.add(e.key);
+        this.keys.add(e.key);
+      }, { passive:false });
+      addEventListener("keyup", (e) => {
+        this.keys.delete(e.key);
+        this.up.add(e.key);
+      });
+    }
+    isHeld(k) { return this.keys.has(k); }
+    pressed(k) { const p = this.down.has(k); this.down.delete(k); return p; }
+    released(k){ const r = this.up.has(k); this.up.delete(k); return r; }
+  }
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const rand = (min, max) => Math.random() * (max - min) + min;
+  const rectsOverlap = (a, b) => (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
+
+  class Player {
+    constructor(x, y, groundY) {
+      this.x=x; this.y=y; this.w=36; this.h=48;
+      this.groundY = groundY;
+      this.vx=0; this.vy=0;
+      this.speed=2.2; this.jumpPower=6.6;
+      this.onGround=false;
+      this.face=1;
+      this.hpMax=100; this.hp=100;
+      this.rebelMax=100; this.rebel=0;
+      this.attackTimer=0; this.attackCooldown=220; this.combo=0;
+      this.invulnTimer=0; this.dashTimer=0;
+    }
+    get hurtbox(){ return {x:this.x,y:this.y,w:this.w,h:this.h}; }
+    get hitbox(){
+      const range = 36 + this.combo*4;
+      return { x: this.x + (this.face===1? this.w : -range), y: this.y+8, w: range, h: 28 };
+    }
+    update(dt, input, world) {
+      const left  = input.isHeld("ArrowLeft");
+      const right = input.isHeld("ArrowRight");
+      const jump  = input.pressed("ArrowUp") || input.pressed(" ");
+      const dash  = input.pressed("c")||input.pressed("C");
+      const jab   = input.pressed("z")||input.pressed("Z");
+      const heavy = input.pressed("x")||input.pressed("X");
+      const rebel = input.pressed("v")||input.pressed("V");
+
+      if (left && !right) { this.vx = -this.speed; this.face=-1; }
+      else if (right && !left) { this.vx = this.speed; this.face=1; }
+      else this.vx=0;
+
+      if (dash && this.dashTimer<=0) this.dashTimer=180;
+      if (this.dashTimer>0){ this.vx *= 2.4; this.dashTimer -= dt; }
+
+      if (jump && this.onGround){ this.vy = -this.jumpPower; this.onGround=false; }
+
+      this.vy += world.gravity*(dt/16.666);
+      this.y += this.vy;
+      if (this.y + this.h >= this.groundY){
+        this.y = this.groundY - this.h; this.vy = 0; this.onGround=true;
+      }
+
+      this.x = clamp(this.x + this.vx, world.bounds.x, world.bounds.x + world.bounds.w - this.w);
+      this.attackTimer -= dt; if (this.attackTimer<0) this.attackTimer=0;
+      if ((jab||heavy) && this.attackTimer===0){
+        this.attackTimer = this.attackCooldown * (heavy ? 1.1 : 0.7);
+        this.combo = (this.combo+1)%3;
+        const dmg = heavy ? 15 : 8 + this.combo*2;
+        world.requestPlayerAttack(this.hitbox, dmg, heavy?340:220, this.face);
+        this.rebel = clamp(this.rebel + (heavy?6:3), 0, this.rebelMax);
+      }
+      if (rebel && this.rebel>=this.rebelMax){ world.triggerRebel(4000); this.rebel=0; }
+      if (this.invulnTimer>0) this.invulnTimer -= dt;
+    }
+    takeDamage(dmg, kb=0, dir=1){
+      if (this.invulnTimer>0) return;
+      this.hp = Math.max(0, this.hp - dmg);
+      this.invulnTimer=600;
+      this.vx += kb*dir;
+    }
+    heal(v){ this.hp = clamp(this.hp + v, 0, this.hpMax); }
+  }
+
+  class Enemy {
+    constructor(x, groundY, wave=1){
+      this.x=x; this.y=groundY-44; this.w=34; this.h=44;
+      this.vx=0; this.vy=0;
+      this.face=-1;
+      this.speed = 1.2 + Math.min(1.0, wave*0.12);
+      this.hpMax = 26 + Math.floor(wave*4);
+      this.hp = this.hpMax;
+      this.attackCd=0; this.invuln=0;
+      this.type = Math.random() < .5 ? "bonehead" : "cop";
+    }
+    get hurtbox(){ return { x:this.x, y:this.y, w:this.w, h:this.h }; }
+    get hitbox(){ return { x: this.x + (this.face===1? this.w : -24), y:this.y+8, w:24, h:24 }; }
+    update(dt, player, world){
+      const dx = player.x - this.x;
+      this.face = dx > 0 ? 1 : -1;
+      const dist = Math.abs(dx);
+      if (dist > 40){
+        this.vx = this.speed * Math.sign(dx);
+      } else if (this.attackCd<=0){
+        world.requestEnemyAttack(this.hitbox, 6 + (this.type==="cop"?2:0), 180, this.face);
+        this.attackCd = 650 + Math.random()*300;
+        this.vx = -this.speed*0.4 * this.face;
+      } else {
+        this.vx = 0;
+      }
+      this.attackCd -= dt;
+      if (this.invuln>0) this.invuln -= dt;
+      this.x = clamp(this.x + this.vx, world.bounds.x, world.bounds.x + world.bounds.w - this.w);
+    }
+    takeDamage(dmg, kb=0, dir=1){
+      if (this.invuln>0) return false;
+      this.hp = Math.max(0, this.hp - dmg);
+      this.invuln=220;
+      this.vx += kb * dir;
+      return this.hp <= 0;
+    }
+  }
+
+  class Level {
+    constructor(worldWidth, groundY){
+      this.worldWidth = worldWidth;
+      this.groundY = groundY;
+      this.wave=1;
+      this.enemies=[];
+      this.spawnCooldown=0;
+      this.toSpawn = 4;
+    }
+    update(dt, player){
+      this.spawnCooldown -= dt;
+      if (this.spawnCooldown<=0 && this.toSpawn>0 && this.enemies.length < 5){
+        const side = Math.random() < .5 ? 40 : (this.worldWidth - 80);
+        this.enemies.push(new Enemy(side, this.groundY, this.wave));
+        this.toSpawn--;
+        this.spawnCooldown = 900 - Math.min(500, this.wave*40);
+      }
+      this.enemies = this.enemies.filter(e => e.hp > 0);
+      if (this.toSpawn<=0 && this.enemies.length===0){
+        this.wave++;
+        this.toSpawn = 4 + Math.floor(this.wave*0.6);
+        player.heal(10);
+      }
+    }
+  }
+
+  class UI {
+    constructor(){
+      this.hpBar = document.querySelector("#hpBar .fill");
+      this.rebelBar = document.querySelector("#rebelBar .fill");
+      this.waveNum = document.querySelector("#waveNum");
+      this.scoreNum = document.querySelector("#scoreNum");
+      this.canvas = document.getElementById("game");
+    }
+    setHP(v,max){ this.hpBar.style.width = (100*v/max)+"%"; }
+    setRebel(v,max){ this.rebelBar.style.width = (100*v/max)+"%"; }
+    setWave(n){ this.waveNum.textContent = n; }
+    setScore(s){ this.scoreNum.textContent = s; }
+    setRebelFx(on){ this.canvas.classList.toggle("rebel", !!on); }
+  }
+
+  class Game {
+    constructor(canvas){
+      this.canvas = canvas;
+      this.ctx = canvas.getContext("2d");
+      this.input = new Input();
+      this.ui = new UI();
+      this.bounds = { x:0,y:0,w:canvas.width,h:canvas.height };
+      this.groundY = canvas.height - 64;
+      this.gravity = 0.45;
+      this.player = new Player(80, this.groundY - 48, this.groundY);
+      this.level = new Level(this.bounds.w, this.groundY);
+      this.last = 0; this.accum=0; this.step=1000/60;
+      this.rebelMode=0; this.shake=0; this.score=0;
+    }
+    start(){ requestAnimationFrame(this.loop.bind(this)); }
+    requestPlayerAttack(hitbox, dmg, kb, dir){
+      for (const e of this.level.enemies){
+        if (rectsOverlap(hitbox, e.hurtbox)){
+          const dead = e.takeDamage(this.rebelBoost(dmg), kb, dir);
+          this.shake = 80;
+          this.score += dead ? 50 : 10;
+        }
+      }
+    }
+    requestEnemyAttack(hitbox, dmg, kb, dir){
+      if (rectsOverlap(hitbox, this.player.hurtbox)){
+        this.player.takeDamage(this.rebelWeak(dmg), kb, dir);
+        this.shake = 60;
+      }
+    }
+    triggerRebel(ms){ this.rebelMode = Math.max(this.rebelMode, ms); }
+    rebelBoost(v){ return this.rebelMode>0 ? Math.floor(v*1.7) : v; }
+    rebelWeak(v){ return this.rebelMode>0 ? Math.floor(v*0.6) : v; }
+    loop(t){
+      const dt = Math.min(50, t - this.last || 16.666);
+      this.last = t; this.accum += dt;
+      while (this.accum >= this.step){
+        this.update(this.step);
+        this.accum -= this.step;
+      }
+      this.draw();
+      requestAnimationFrame(this.loop.bind(this));
+    }
+    update(dt){
+      this.player.update(dt, this.input, this);
+      for (const e of this.level.enemies) e.update(dt, this.player, this);
+      this.level.update(dt, this.player);
+      if (this.rebelMode>0) this.rebelMode -= dt;
+      this.ui.setRebelFx(this.rebelMode>0);
+      this.ui.setHP(this.player.hp, this.player.hpMax);
+      this.ui.setRebel(this.player.rebel, this.player.rebelMax);
+      this.ui.setWave(this.level.wave);
+      this.ui.setScore(this.score);
+      if (this.player.hp<=0){
+        this.score=0;
+        this.level = new Level(this.bounds.w, this.groundY);
+        this.player = new Player(80, this.groundY-48, this.groundY);
+        this.rebelMode=0; this.shake=0;
+      }
+    }
+    draw(){
+      const c = this.ctx;
+      const ox = this.shake>0 ? (Math.random()*6-3) : 0;
+      const oy = this.shake>0 ? (Math.random()*6-3) : 0;
+      this.shake = Math.max(0, this.shake - 2);
+      c.save(); c.translate(ox, oy);
+      c.fillStyle = "#121212";
+      c.fillRect(0,0,this.bounds.w,this.groundY-6);
+      c.fillStyle = "#101820";
+      for (let i=0;i<12;i++){
+        c.fillRect(40+i*72, 70, 48, 26);
+        c.fillRect(40+i*72, 120, 48, 26);
+      }
+      c.fillStyle = "#b6ff00"; c.fillRect(60, 180, 140, 18);
+      c.fillStyle = "#e63946"; c.fillRect(240, 155, 130, 16);
+      c.fillStyle = "#f2a900"; c.fillRect(420, 195, 160, 16);
+      c.fillStyle = "#1a1a1a"; c.fillRect(0, this.groundY, this.bounds.w, this.bounds.h - this.groundY);
+      c.fillStyle = "#2a2a2a"; c.fillRect(0, this.groundY-6, this.bounds.w, 6);
+      for (const e of this.level.enemies) this.drawEnemy(c, e);
+      this.drawPlayer(c, this.player);
+      c.restore();
+      this.drawGrime(c);
+    }
+    drawPlayer(c,p){
+      c.fillStyle = this.rebelMode>0 ? "#b6ff00" : "#dddddd";
+      c.fillRect(p.x, p.y, p.w, p.h);
+      c.fillStyle = "#e63946";
+      c.fillRect(p.x+4, p.y+8, p.w-8, 6);
+      c.fillStyle = "#111";
+      if (p.face===1) c.fillRect(p.x+p.w-4, p.y+14, 3,3);
+      else c.fillRect(p.x+1, p.y+14, 3,3);
+      if (p.attackTimer>0){
+        const hb = p.hitbox;
+        c.globalAlpha = 0.25;
+        c.fillStyle = this.rebelMode>0 ? "#b6ff00" : "#ffffff";
+        c.fillRect(hb.x, hb.y, hb.w, hb.h);
+        c.globalAlpha = 1;
+      }
+    }
+    drawEnemy(c,e){
+      c.fillStyle = e.type==="cop" ? "#4f5b66" : "#9b1b30";
+      c.fillRect(e.x,e.y,e.w,e.h);
+      c.fillStyle = "#111";
+      if (e.face===1) c.fillRect(e.x+e.w-4, e.y+14, 3,3);
+      else c.fillRect(e.x+1, e.y+14, 3,3);
+      c.fillStyle = "#e63946";
+      c.fillRect(e.x, e.y-6, (e.w)*(e.hp/e.hpMax), 4);
+    }
+    drawGrime(c){
+      c.globalAlpha = 0.06;
+      for (let i=0;i<40;i++){
+        c.fillStyle = "#fff";
+        c.fillRect(Math.random()*this.bounds.w, Math.random()*this.bounds.h, 2, 2);
+      }
+      c.globalAlpha=1;
+    }
+  }
+  const canvas = document.getElementById("game");
+  const game = new Game(canvas);
+  game.start();
+  window.npfu = game;
+  </script>
+</body>
+</html>
