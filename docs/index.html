@@ -1,338 +1,342 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>NPFU — Side-Scrolling Beat ’Em Up</title>
-  <style>
-  :root {
-    --ink: #111;
-    --paper: #f1efe6;
-    --punk: #e63946;
-    --lime: #b6ff00;
-    --steel: #222;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--ink); color: var(--paper); font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-  .frame { max-width: 980px; margin: 0 auto; padding: 8px 8px 16px; }
-  .hud, .controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px; border: 2px solid var(--paper); background: var(--steel); }
-  .controls { margin-top: 8px; font-size: 12px; opacity: .85; }
-  .tag { background: var(--paper); color: var(--ink); padding: 2px 6px; font-weight: 700; margin-right: 6px; border: 1px solid var(--ink); }
-  .bar { width: 180px; height: 14px; border: 2px solid var(--paper); background: #333; display: inline-block; vertical-align: middle; margin-right: 12px; }
-  .bar .fill { height: 100%; width: 100%; background: var(--punk); }
-  .hud-right { display: flex; gap: 10px; align-items: center; }
-  #game { display: block; width: 100%; height: auto; border: 4px solid var(--paper); background: repeating-linear-gradient(0deg,#0f0f0f 0 14px,#141414 14px 28px); }
-  .rebel { filter: saturate(1.8) contrast(1.25); box-shadow: 0 0 22px var(--lime) inset; }
-  footer div { letter-spacing: .5px; }
-  a { color: var(--lime); }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NPFU — Side-Scrolling Beat ’Em Up</title>
+<style>
+:root{
+  --ink:#0d0d0d; --paper:#efece2; --punk:#e63946; --lime:#b6ff00; --steel:#1b1b1b; --gold:#f2a900;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--ink);color:var(--paper);font:14px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.wrap{max-width:980px;margin:auto;padding:8px 8px 16px}
+.hud,.controls{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px;border:2px solid var(--paper);background:var(--steel)}
+.controls{margin-top:8px;font-size:12px;opacity:.85}
+.tag{background:var(--paper);color:var(--ink);padding:2px 6px;font-weight:700;margin-right:6px;border:1px solid var(--ink)}
+.bar{width:180px;height:14px;border:2px solid var(--paper);background:#333;display:inline-block;vertical-align:middle;margin-right:12px}
+.bar .fill{height:100%;width:100%;background:var(--punk)}
+.hud-right{display:flex;gap:10px;align-items:center}
+#game{display:block;width:100%;height:auto;border:4px solid var(--paper);background:#101010}
+.rebel{filter:saturate(1.8) contrast(1.25);box-shadow:0 0 22px var(--lime) inset}
+.menu{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+}
+.card{
+  background:rgba(20,20,20,.94); border:3px solid var(--paper); padding:22px 26px; max-width:560px;
+  box-shadow:0 12px 40px rgba(0,0,0,.5)
+}
+h1{margin:0 0 10px; font-size:26px; letter-spacing:.5px}
+li{margin:4px 0}
+kbd{border:1px solid #666;padding:1px 5px;border-radius:4px;background:#222}
+.button{display:inline-block;margin-top:8px;padding:8px 12px;border:2px solid var(--paper);cursor:pointer}
+small{opacity:.8}
+</style>
 </head>
 <body>
-  <div class="frame">
-    <header class="hud">
-      <div class="hud-left">
-        <span class="tag">HP</span><div id="hpBar" class="bar"><div class="fill"></div></div>
-        <span class="tag">REBEL</span><div id="rebelBar" class="bar"><div class="fill"></div></div>
-      </div>
-      <div class="hud-right">
-        <span class="tag">WAVE</span><span id="waveNum">1</span>
-        <span class="tag">SCORE</span><span id="scoreNum">0</span>
-      </div>
-    </header>
+<div class="wrap">
+  <header class="hud">
+    <div>
+      <span class="tag">HP</span><div id="hpBar" class="bar"><div class="fill"></div></div>
+      <span class="tag">REBEL</span><div id="rebelBar" class="bar"><div class="fill" style="background:var(--lime)"></div></div>
+    </div>
+    <div class="hud-right">
+      <span class="tag">WAVE</span><span id="waveNum">1</span>
+      <span class="tag">SCORE</span><span id="scoreNum">0</span>
+      <span class="tag">ITEM</span><span id="itemTxt">—</span>
+    </div>
+  </header>
+
+  <div style="position:relative">
     <canvas id="game" width="960" height="540"></canvas>
-    <footer class="controls">
-      <div>← → to move • ↑ to jump • Z to jab • X to heavy • C to dash • V to Rebel</div>
-    </footer>
+    <!-- Menus layered over the canvas -->
+    <div id="titleMenu" class="menu">
+      <div class="card">
+        <h1>NPFU</h1>
+        <p>Basement-born brawler. Nazis, cops, and sellouts get sent to the curb.</p>
+        <ul>
+          <li><kbd>← →</kbd> move • <kbd>↑</kbd>/<kbd>Space</kbd> jump</li>
+          <li><kbd>Z</kbd> jab • <kbd>X</kbd> heavy • <kbd>C</kbd> dash • <kbd>V</kbd> Rebel</li>
+          <li><kbd>G</kbd> throw item (Molotov) • <kbd>P</kbd> pause</li>
+        </ul>
+        <div class="button" id="startBtn">Start</div>
+        <div style="margin-top:10px">
+          <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+        </div>
+        <small>© 1977–1995 never died.</small>
+      </div>
+    </div>
+    <div id="pauseMenu" class="menu" style="display:none">
+      <div class="card">
+        <h1>Paused</h1>
+        <p><kbd>P</kbd> to resume. <kbd>R</kbd> restart level. <kbd>M</kbd> title.</p>
+      </div>
+    </div>
+    <div id="gameOver" class="menu" style="display:none">
+      <div class="card">
+        <h1>Down but not out</h1>
+        <p>Press <kbd>R</kbd> to try again or <kbd>M</kbd> for menu.</p>
+      </div>
+    </div>
   </div>
-  <script type="module">
-  class Input {
-    constructor() {
-      this.keys = new Set();
-      this.down = new Set();
-      this.up = new Set();
-      addEventListener("keydown", (e) => {
-        if (["ArrowLeft","ArrowRight","ArrowUp"," "].includes(e.key)) e.preventDefault();
-        if (!this.keys.has(e.key)) this.down.add(e.key);
-        this.keys.add(e.key);
-      }, { passive:false });
-      addEventListener("keyup", (e) => {
-        this.keys.delete(e.key);
-        this.up.add(e.key);
-      });
+
+  <footer class="controls"><div>DIY build • Hard-refresh if the page hangs after deploy.</div></footer>
+</div>
+
+<script>
+/* ===== util ===== */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const hit=(A,B)=>A.x<B.x+B.w&&A.x+A.w>B.x&&A.y<B.y+B.h&&A.y+A.h>B.y;
+const r=(a,b)=>Math.random()*(b-a)+a;
+
+/* ===== input ===== */
+class Input{
+  constructor(){this.k=new Set;this.d=new Set;this.u=new Set;
+    addEventListener("keydown",e=>{if(["ArrowLeft","ArrowRight","ArrowUp"," "].includes(e.key))e.preventDefault();
+      if(!this.k.has(e.key))this.d.add(e.key);this.k.add(e.key)
+    },{passive:false});
+    addEventListener("keyup",e=>{this.k.delete(e.key);this.u.add(e.key)});
+  }
+  held(k){return this.k.has(k)}
+  press(k){const p=this.d.has(k);this.d.delete(k);return p}
+  release(k){const p=this.u.has(k);this.u.delete(k);return p}
+}
+
+/* ===== entities ===== */
+class Player{
+  constructor(x,y,ground){this.x=x;this.y=y;this.w=36;this.h=48;this.g=ground;
+    this.vx=0;this.vy=0;this.face=1;this.spd=2.2;this.jump=6.6;
+    this.hpM=100;this.hp=this.hpM;this.rebM=100;this.reb=0;
+    this.item=null; this.cd=0; this.inv=0; this.dash=0; this.score=0;
+  }
+  get hb(){return{ x:this.x+(this.face===1?this.w:-34), y:this.y+8, w:34, h:28 }}
+  get bb(){return{ x:this.x,y:this.y,w:this.w,h:this.h }}
+  upd(dt,input,world){
+    const L=input.held("ArrowLeft"), Rn=input.held("ArrowRight");
+    this.vx=L^Rn? (Rn? this.spd:-this.spd):0; this.face=this.vx>0?1:(this.vx<0?-1:this.face);
+    if((input.press("ArrowUp")||input.press(" "))&&this.y+this.h>=this.g){this.vy=-this.jump}
+    if(input.press("c")||input.press("C")) this.dash=180;
+    if(this.dash>0){this.vx*=2.4; this.dash-=dt}
+
+    // gravity & floor
+    this.vy+=0.45*(dt/16.666); this.y+=this.vy;
+    if(this.y+this.h>=this.g){this.y=this.g-this.h;this.vy=0}
+
+    // horizontal bounds
+    this.x=clamp(this.x+this.vx, 0, world.W-this.w);
+
+    // attacks
+    this.cd=Math.max(0,this.cd-dt);
+    if((input.press("z")||input.press("Z")||input.press("x")||input.press("X"))&&this.cd===0){
+      const heavy = !!(input.press("x")||input.press("X"));
+      this.cd=heavy?240:160;
+      const dmg=heavy?16:9, kb=heavy?360:220;
+      world.pAtk(this.hb,dmg,kb,this.face); this.reb=Math.min(this.rebM,this.reb+(heavy?6:3));
     }
-    isHeld(k) { return this.keys.has(k); }
-    pressed(k) { const p = this.down.has(k); this.down.delete(k); return p; }
-    released(k){ const r = this.up.has(k); this.up.delete(k); return r; }
+
+    // throw item
+    if((input.press("g")||input.press("G"))&&this.item==="molotov"){
+      world.spawnMolotov(this.x+(this.face===1?this.w:0), this.y+8, this.face);
+      this.item=null;
+    }
+
+    // rebel
+    if((input.press("v")||input.press("V"))&&this.reb>=this.rebM){world.rebel(4200); this.reb=0;}
+
+    if(this.inv>0) this.inv-=dt;
+  }
+  hurt(n,kb=0,dir=1){ if(this.inv>0) return; this.hp=Math.max(0,this.hp-n); this.inv=600; this.vx+=kb*dir; }
+  heal(n){ this.hp=Math.min(this.hpM,this.hp+n) }
+}
+
+class Enemy{
+  constructor(x,ground,wave,type){
+    this.x=x; this.y=ground-44; this.w=34; this.h=44; this.face=-1;
+    this.spd=1.1+Math.min(1,wave*0.12);
+    this.hpM=24+Math.floor(wave*4)+(type==="riot"?12:0); this.hp=this.hpM;
+    this.cd=0; this.inv=0; this.type=type|| (Math.random()<.5?"bonehead":"cop");
+  }
+  get hb(){return{ x:this.x+(this.face===1?this.w:-22), y:this.y+8, w:22, h:24 }}
+  get bb(){return{ x:this.x,y:this.y,w:this.w,h:this.h }}
+  upd(dt,p,world){
+    const dx=p.x-this.x; this.face=dx>0?1:-1; const dist=Math.abs(dx);
+    if(dist>44) this.x+=Math.sign(dx)*this.spd;
+    else if(this.cd<=0){ world.eAtk(this.hb, 6+(this.type==="cop"?2:0), 180, this.face); this.cd=620+r(0,260); this.x-=this.face*0.6; }
+    this.cd-=dt; if(this.inv>0) this.inv-=dt;
+    this.x=clamp(this.x,0,world.W-this.w);
+  }
+  hit(n,kb,dir){ if(this.inv>0) return false; this.hp=Math.max(0,this.hp-n); this.inv=200; this.x+=kb*0.01*dir; return this.hp<=0; }
+}
+
+class Pickup{
+  constructor(x,y,kind){this.x=x;this.y=y;this.w=16;this.h=16;this.kind=kind;this.vy=-3;}
+  get bb(){return{ x:this.x,y:this.y,w:this.w,h:this.h }}
+  upd(dt,world){
+    this.vy+=0.35; this.y+=this.vy;
+    if(this.y+this.h>=world.G){this.y=world.G-this.h; this.vy=0;}
+  }
+  draw(c){
+    if(this.kind==="health"){c.fillStyle="#4caf50"} else {c.fillStyle="#ff6f00"}
+    c.fillRect(this.x,this.y,this.w,this.h);
+  }
+}
+
+class Fire{
+  constructor(x,y){this.x=x;this.y=y;this.t=1200;this.w=28;this.h=10;}
+  get hb(){return{ x:this.x,y:this.y-8,w:this.w,h:this.h }}
+  upd(dt){this.t-=dt}
+  draw(c){c.globalAlpha=.8;c.fillStyle="#ff9800";c.fillRect(this.x,this.y-6,this.w,6);c.globalAlpha=1}
+}
+
+/* ===== world/game ===== */
+class Game{
+  constructor(cv){
+    this.cv=cv; this.c=cv.getContext("2d"); this.input=new Input();
+    this.W=cv.width; this.H=cv.height; this.G=this.H-64;
+    this.ui={ hp:document.querySelector("#hpBar .fill"), rb:document.querySelector("#rebelBar .fill"),
+              wave:document.querySelector("#waveNum"), score:document.querySelector("#scoreNum"), item:document.querySelector("#itemTxt"),
+              canvas:cv };
+    this.resetAll();
+
+    // menus
+    this.state="menu";
+    document.getElementById("startBtn").onclick=()=>{this.startRun()};
+    document.getElementById("vol").oninput=(e)=>{this.vol=parseFloat(e.target.value)}
+    addEventListener("keydown",(e)=>{
+      if(e.key==="p"||e.key==="P"){
+        if(this.state==="play"){ this.state="pause"; document.getElementById("pauseMenu").style.display="flex"; }
+        else if(this.state==="pause"){ this.state="play"; document.getElementById("pauseMenu").style.display="none"; }
+      }
+      if(e.key==="r"||e.key==="R"){ this.restart(); }
+      if(e.key==="m"||e.key==="M"){ this.toMenu(); }
+      if(this.state==="menu" && (e.key==="Enter"||e.key===" ")){ this.startRun(); }
+    });
   }
 
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-  const rand = (min, max) => Math.random() * (max - min) + min;
-  const rectsOverlap = (a, b) => (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
+  resetAll(){
+    this.player=new Player(80,this.G-48,this.G);
+    this.wave=1; this.enemies=[]; this.pickups=[]; this.fires=[];
+    this.spawnCD=0; this.toSpawn=4; this.rebelT=0; this.shake=0; this.score=0; this.vol=.5;
+  }
+  toMenu(){ this.state="menu"; document.getElementById("pauseMenu").style.display="none";
+    document.getElementById("gameOver").style.display="none"; document.getElementById("titleMenu").style.display="flex"; }
+  startRun(){ this.resetAll(); this.state="play"; document.getElementById("titleMenu").style.display="none"; }
+  restart(){ if(this.state!=="menu"){ this.startRun(); } }
 
-  class Player {
-    constructor(x, y, groundY) {
-      this.x=x; this.y=y; this.w=36; this.h=48;
-      this.groundY = groundY;
-      this.vx=0; this.vy=0;
-      this.speed=2.2; this.jumpPower=6.6;
-      this.onGround=false;
-      this.face=1;
-      this.hpMax=100; this.hp=100;
-      this.rebelMax=100; this.rebel=0;
-      this.attackTimer=0; this.attackCooldown=220; this.combo=0;
-      this.invulnTimer=0; this.dashTimer=0;
+  pAtk(hb,dmg,kb,dir){
+    for(const e of this.enemies){ if(hit(hb,e.bb)){ const dead=e.hit(this.boost(dmg),kb,dir); this.shake=80; this.score+=dead?50:10; } }
+  }
+  eAtk(hb,d,k,dir){ if(hit(hb,this.player.bb)){ this.player.hurt(this.weak(d),k,dir); this.shake=60; } }
+  rebel(ms){ this.rebelT=Math.max(this.rebelT,ms) }
+  boost(v){return this.rebelT>0?Math.floor(v*1.7):v}
+  weak(v){return this.rebelT>0?Math.floor(v*0.6):v}
+
+  spawnMolotov(x,y,dir){ const f=new Fire(x+dir*18,y+28); this.fires.push(f); }
+  drop(kind,x,y){ this.pickups.push(new Pickup(x,y,kind)); }
+
+  update(dt){
+    if(this.state!=="play") return;
+
+    this.player.upd(dt,this.input,this);
+    for(const e of this.enemies) e.upd(dt,this.player,this);
+    for(const p of this.pickups) p.upd(dt,this);
+
+    // fire damage
+    for(const f of this.fires){
+      for(const e of this.enemies) if(hit(f.hb,e.bb)) e.hit(this.boost(2),0,0);
+      f.t-=dt;
     }
-    get hurtbox(){ return {x:this.x,y:this.y,w:this.w,h:this.h}; }
-    get hitbox(){
-      const range = 36 + this.combo*4;
-      return { x: this.x + (this.face===1? this.w : -range), y: this.y+8, w: range, h: 28 };
-    }
-    update(dt, input, world) {
-      const left  = input.isHeld("ArrowLeft");
-      const right = input.isHeld("ArrowRight");
-      const jump  = input.pressed("ArrowUp") || input.pressed(" ");
-      const dash  = input.pressed("c")||input.pressed("C");
-      const jab   = input.pressed("z")||input.pressed("Z");
-      const heavy = input.pressed("x")||input.pressed("X");
-      const rebel = input.pressed("v")||input.pressed("V");
+    this.fires=this.fires.filter(f=>f.t>0);
 
-      if (left && !right) { this.vx = -this.speed; this.face=-1; }
-      else if (right && !left) { this.vx = this.speed; this.face=1; }
-      else this.vx=0;
-
-      if (dash && this.dashTimer<=0) this.dashTimer=180;
-      if (this.dashTimer>0){ this.vx *= 2.4; this.dashTimer -= dt; }
-
-      if (jump && this.onGround){ this.vy = -this.jumpPower; this.onGround=false; }
-
-      this.vy += world.gravity*(dt/16.666);
-      this.y += this.vy;
-      if (this.y + this.h >= this.groundY){
-        this.y = this.groundY - this.h; this.vy = 0; this.onGround=true;
+    // pickups collection
+    this.pickups=this.pickups.filter(p=>{
+      if(hit(p.bb,this.player.bb)){
+        if(p.kind==="health") this.player.heal(20); else this.player.item="molotov";
+        return false;
       }
+      return true;
+    });
 
-      this.x = clamp(this.x + this.vx, world.bounds.x, world.bounds.x + world.bounds.w - this.w);
-      this.attackTimer -= dt; if (this.attackTimer<0) this.attackTimer=0;
-      if ((jab||heavy) && this.attackTimer===0){
-        this.attackTimer = this.attackCooldown * (heavy ? 1.1 : 0.7);
-        this.combo = (this.combo+1)%3;
-        const dmg = heavy ? 15 : 8 + this.combo*2;
-        world.requestPlayerAttack(this.hitbox, dmg, heavy?340:220, this.face);
-        this.rebel = clamp(this.rebel + (heavy?6:3), 0, this.rebelMax);
+    // spawns & waves
+    this.spawnCD-=dt;
+    if(this.spawnCD<=0 && this.toSpawn>0 && this.enemies.length<5){
+      const side=Math.random()<.5?40:this.W-80;
+      const type= (this.wave%3===0 && this.toSpawn===1)? "riot":"";
+      this.enemies.push(new Enemy(side,this.G,this.wave,type));
+      this.toSpawn--; this.spawnCD=900-Math.min(500,this.wave*40);
+    }
+    // cull dead + drops
+    this.enemies=this.enemies.filter(e=>{
+      if(e.hp<=0){ if(Math.random()<.35) this.drop(Math.random()<.5?"health":"molotov",e.x,e.y); return false; }
+      return true;
+    });
+
+    if(this.toSpawn<=0 && this.enemies.length===0){
+      this.wave++;
+      this.toSpawn= (this.wave%5===0)? 1 : 4+Math.floor(this.wave*0.6);
+      this.player.heal(10);
+      if(this.wave%5===0){
+        this.enemies.push(new Enemy(this.W/2-17,this.G,this.wave,"riot"));
+        this.toSpawn=0;
       }
-      if (rebel && this.rebel>=this.rebelMax){ world.triggerRebel(4000); this.rebel=0; }
-      if (this.invulnTimer>0) this.invulnTimer -= dt;
     }
-    takeDamage(dmg, kb=0, dir=1){
-      if (this.invulnTimer>0) return;
-      this.hp = Math.max(0, this.hp - dmg);
-      this.invulnTimer=600;
-      this.vx += kb*dir;
-    }
-    heal(v){ this.hp = clamp(this.hp + v, 0, this.hpMax); }
+
+    if(this.rebelT>0) this.rebelT-=dt;
+    if(this.player.hp<=0){ this.state="over"; document.getElementById("gameOver").style.display="flex"; }
+
+    this.ui.hp.style.width=(100*this.player.hp/this.player.hpM)+"%";
+    this.ui.rb.style.width=(100*this.player.reb/this.player.rebM)+"%";
+    this.ui.wave.textContent=this.wave; this.ui.score.textContent=this.score;
+    this.ui.item.textContent=this.player.item?this.player.item:"—";
+    this.ui.canvas.classList.toggle("rebel",this.rebelT>0);
   }
 
-  class Enemy {
-    constructor(x, groundY, wave=1){
-      this.x=x; this.y=groundY-44; this.w=34; this.h=44;
-      this.vx=0; this.vy=0;
-      this.face=-1;
-      this.speed = 1.2 + Math.min(1.0, wave*0.12);
-      this.hpMax = 26 + Math.floor(wave*4);
-      this.hp = this.hpMax;
-      this.attackCd=0; this.invuln=0;
-      this.type = Math.random() < .5 ? "bonehead" : "cop";
-    }
-    get hurtbox(){ return { x:this.x, y:this.y, w:this.w, h:this.h }; }
-    get hitbox(){ return { x: this.x + (this.face===1? this.w : -24), y:this.y+8, w:24, h:24 }; }
-    update(dt, player, world){
-      const dx = player.x - this.x;
-      this.face = dx > 0 ? 1 : -1;
-      const dist = Math.abs(dx);
-      if (dist > 40){
-        this.vx = this.speed * Math.sign(dx);
-      } else if (this.attackCd<=0){
-        world.requestEnemyAttack(this.hitbox, 6 + (this.type==="cop"?2:0), 180, this.face);
-        this.attackCd = 650 + Math.random()*300;
-        this.vx = -this.speed*0.4 * this.face;
-      } else {
-        this.vx = 0;
-      }
-      this.attackCd -= dt;
-      if (this.invuln>0) this.invuln -= dt;
-      this.x = clamp(this.x + this.vx, world.bounds.x, world.bounds.x + world.bounds.w - this.w);
-    }
-    takeDamage(dmg, kb=0, dir=1){
-      if (this.invuln>0) return false;
-      this.hp = Math.max(0, this.hp - dmg);
-      this.invuln=220;
-      this.vx += kb * dir;
-      return this.hp <= 0;
-    }
-  }
+  draw(){
+    const c=this.c; const ox=this.shake>0?(Math.random()*6-3):0, oy=this.shake>0?(Math.random()*6-3):0; this.shake=Math.max(0,this.shake-2);
+    c.save(); c.translate(ox,oy);
 
-  class Level {
-    constructor(worldWidth, groundY){
-      this.worldWidth = worldWidth;
-      this.groundY = groundY;
-      this.wave=1;
-      this.enemies=[];
-      this.spawnCooldown=0;
-      this.toSpawn = 4;
-    }
-    update(dt, player){
-      this.spawnCooldown -= dt;
-      if (this.spawnCooldown<=0 && this.toSpawn>0 && this.enemies.length < 5){
-        const side = Math.random() < .5 ? 40 : (this.worldWidth - 80);
-        this.enemies.push(new Enemy(side, this.groundY, this.wave));
-        this.toSpawn--;
-        this.spawnCooldown = 900 - Math.min(500, this.wave*40);
-      }
-      this.enemies = this.enemies.filter(e => e.hp > 0);
-      if (this.toSpawn<=0 && this.enemies.length===0){
-        this.wave++;
-        this.toSpawn = 4 + Math.floor(this.wave*0.6);
-        player.heal(10);
-      }
-    }
-  }
+    // parallax wall
+    c.fillStyle="#111"; c.fillRect(0,0,this.W,this.G-6);
+    c.fillStyle="#0f1620"; for(let i=0;i<12;i++){ c.fillRect(40+i*72,70,48,26); c.fillRect(40+i*72,120,48,26); }
+    // banners
+    c.fillStyle="#b6ff00"; c.fillRect(60,180,140,18);
+    c.fillStyle="#e63946"; c.fillRect(240,155,130,16);
+    c.fillStyle="#f2a900"; c.fillRect(420,195,160,16);
 
-  class UI {
-    constructor(){
-      this.hpBar = document.querySelector("#hpBar .fill");
-      this.rebelBar = document.querySelector("#rebelBar .fill");
-      this.waveNum = document.querySelector("#waveNum");
-      this.scoreNum = document.querySelector("#scoreNum");
-      this.canvas = document.getElementById("game");
-    }
-    setHP(v,max){ this.hpBar.style.width = (100*v/max)+"%"; }
-    setRebel(v,max){ this.rebelBar.style.width = (100*v/max)+"%"; }
-    setWave(n){ this.waveNum.textContent = n; }
-    setScore(s){ this.scoreNum.textContent = s; }
-    setRebelFx(on){ this.canvas.classList.toggle("rebel", !!on); }
-  }
+    // ground
+    c.fillStyle="#1a1a1a"; c.fillRect(0,this.G,this.W,this.H-this.G);
+    c.fillStyle="#2a2a2a"; c.fillRect(0,this.G-6,this.W,6);
 
-  class Game {
-    constructor(canvas){
-      this.canvas = canvas;
-      this.ctx = canvas.getContext("2d");
-      this.input = new Input();
-      this.ui = new UI();
-      this.bounds = { x:0,y:0,w:canvas.width,h:canvas.height };
-      this.groundY = canvas.height - 64;
-      this.gravity = 0.45;
-      this.player = new Player(80, this.groundY - 48, this.groundY);
-      this.level = new Level(this.bounds.w, this.groundY);
-      this.last = 0; this.accum=0; this.step=1000/60;
-      this.rebelMode=0; this.shake=0; this.score=0;
-    }
-    start(){ requestAnimationFrame(this.loop.bind(this)); }
-    requestPlayerAttack(hitbox, dmg, kb, dir){
-      for (const e of this.level.enemies){
-        if (rectsOverlap(hitbox, e.hurtbox)){
-          const dead = e.takeDamage(this.rebelBoost(dmg), kb, dir);
-          this.shake = 80;
-          this.score += dead ? 50 : 10;
-        }
-      }
-    }
-    requestEnemyAttack(hitbox, dmg, kb, dir){
-      if (rectsOverlap(hitbox, this.player.hurtbox)){
-        this.player.takeDamage(this.rebelWeak(dmg), kb, dir);
-        this.shake = 60;
-      }
-    }
-    triggerRebel(ms){ this.rebelMode = Math.max(this.rebelMode, ms); }
-    rebelBoost(v){ return this.rebelMode>0 ? Math.floor(v*1.7) : v; }
-    rebelWeak(v){ return this.rebelMode>0 ? Math.floor(v*0.6) : v; }
-    loop(t){
-      const dt = Math.min(50, t - this.last || 16.666);
-      this.last = t; this.accum += dt;
-      while (this.accum >= this.step){
-        this.update(this.step);
-        this.accum -= this.step;
-      }
-      this.draw();
-      requestAnimationFrame(this.loop.bind(this));
-    }
-    update(dt){
-      this.player.update(dt, this.input, this);
-      for (const e of this.level.enemies) e.update(dt, this.player, this);
-      this.level.update(dt, this.player);
-      if (this.rebelMode>0) this.rebelMode -= dt;
-      this.ui.setRebelFx(this.rebelMode>0);
-      this.ui.setHP(this.player.hp, this.player.hpMax);
-      this.ui.setRebel(this.player.rebel, this.player.rebelMax);
-      this.ui.setWave(this.level.wave);
-      this.ui.setScore(this.score);
-      if (this.player.hp<=0){
-        this.score=0;
-        this.level = new Level(this.bounds.w, this.groundY);
-        this.player = new Player(80, this.groundY-48, this.groundY);
-        this.rebelMode=0; this.shake=0;
-      }
-    }
-    draw(){
-      const c = this.ctx;
-      const ox = this.shake>0 ? (Math.random()*6-3) : 0;
-      const oy = this.shake>0 ? (Math.random()*6-3) : 0;
-      this.shake = Math.max(0, this.shake - 2);
-      c.save(); c.translate(ox, oy);
-      c.fillStyle = "#121212";
-      c.fillRect(0,0,this.bounds.w,this.groundY-6);
-      c.fillStyle = "#101820";
-      for (let i=0;i<12;i++){
-        c.fillRect(40+i*72, 70, 48, 26);
-        c.fillRect(40+i*72, 120, 48, 26);
-      }
-      c.fillStyle = "#b6ff00"; c.fillRect(60, 180, 140, 18);
-      c.fillStyle = "#e63946"; c.fillRect(240, 155, 130, 16);
-      c.fillStyle = "#f2a900"; c.fillRect(420, 195, 160, 16);
-      c.fillStyle = "#1a1a1a"; c.fillRect(0, this.groundY, this.bounds.w, this.bounds.h - this.groundY);
-      c.fillStyle = "#2a2a2a"; c.fillRect(0, this.groundY-6, this.bounds.w, 6);
-      for (const e of this.level.enemies) this.drawEnemy(c, e);
-      this.drawPlayer(c, this.player);
-      c.restore();
-      this.drawGrime(c);
-    }
-    drawPlayer(c,p){
-      c.fillStyle = this.rebelMode>0 ? "#b6ff00" : "#dddddd";
-      c.fillRect(p.x, p.y, p.w, p.h);
-      c.fillStyle = "#e63946";
-      c.fillRect(p.x+4, p.y+8, p.w-8, 6);
-      c.fillStyle = "#111";
-      if (p.face===1) c.fillRect(p.x+p.w-4, p.y+14, 3,3);
-      else c.fillRect(p.x+1, p.y+14, 3,3);
-      if (p.attackTimer>0){
-        const hb = p.hitbox;
-        c.globalAlpha = 0.25;
-        c.fillStyle = this.rebelMode>0 ? "#b6ff00" : "#ffffff";
-        c.fillRect(hb.x, hb.y, hb.w, hb.h);
-        c.globalAlpha = 1;
-      }
-    }
-    drawEnemy(c,e){
-      c.fillStyle = e.type==="cop" ? "#4f5b66" : "#9b1b30";
+    // fires
+    for(const f of this.fires) f.draw(c);
+
+    // enemies
+    for(const e of this.enemies){
+      c.fillStyle=e.type==="cop"?"#4f5b66":"#9b1b30"; if(e.type==="riot") c.fillStyle="#6b7b8c";
       c.fillRect(e.x,e.y,e.w,e.h);
-      c.fillStyle = "#111";
-      if (e.face===1) c.fillRect(e.x+e.w-4, e.y+14, 3,3);
-      else c.fillRect(e.x+1, e.y+14, 3,3);
-      c.fillStyle = "#e63946";
-      c.fillRect(e.x, e.y-6, (e.w)*(e.hp/e.hpMax), 4);
+      c.fillStyle="#111"; if(e.face===1) c.fillRect(e.x+e.w-4,e.y+14,3,3); else c.fillRect(e.x+1,e.y+14,3,3);
+      c.fillStyle= "#e63946"; c.fillRect(e.x,e.y-6, e.w*(e.hp/e.hpM), 4);
     }
-    drawGrime(c){
-      c.globalAlpha = 0.06;
-      for (let i=0;i<40;i++){
-        c.fillStyle = "#fff";
-        c.fillRect(Math.random()*this.bounds.w, Math.random()*this.bounds.h, 2, 2);
-      }
-      c.globalAlpha=1;
-    }
+
+    // player
+    const p=this.player;
+    c.fillStyle=this.rebelT>0?"#b6ff00":"#dddddd"; c.fillRect(p.x,p.y,p.w,p.h);
+    c.fillStyle="#e63946"; c.fillRect(p.x+4,p.y+8,p.w-8,6);
+    c.fillStyle="#111"; if(p.face===1) c.fillRect(p.x+p.w-4,p.y+14,3,3); else c.fillRect(p.x+1,p.y+14,3,3);
+    if(p.cd>0){ const hb=p.hb; c.globalAlpha=.22; c.fillStyle=this.rebelT>0?"#b6ff00":"#ffffff"; c.fillRect(hb.x,hb.y,hb.w,hb.h); c.globalAlpha=1; }
+
+    c.globalAlpha=.06; for(let i=0;i<40;i++){ c.fillStyle="#fff"; c.fillRect(Math.random()*this.W,Math.random()*this.H,2,2) } c.globalAlpha=1;
+
+    c.restore();
   }
-  const canvas = document.getElementById("game");
-  const game = new Game(canvas);
-  game.start();
-  window.npfu = game;
-  </script>
+
+  loop(t){ const dt=Math.min(50, t-this._t||16.666); this._t=t;
+    if(this.state==="play") this.update(dt);
+    this.draw(); requestAnimationFrame(this.loop.bind(this));
+  }
+}
+
+const game=new Game(document.getElementById("game"));
+game.loop(0);
+</script>
 </body>
 </html>
