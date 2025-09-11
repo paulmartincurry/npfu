@@ -1,56 +1,130 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>NPFU — Side-Scrolling Beat ’Em Up</title>
-  <link rel="stylesheet" href="./styles.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NPFU — Alley Test</title>
+  <style>
+    html, body { margin:0; padding:0; background:#0b0b0b; color:#e5e5e5; font-family: monospace; }
+    #gameWrap { display:flex; gap:16px; padding:16px; }
+    canvas { image-rendering: pixelated; border:2px solid #e5e5e5; }
+    .hud { min-width: 260px; }
+    .bar { height:10px; background:#222; border:1px solid #666; margin:6px 0; position:relative; }
+    .fill { position:absolute; top:0; left:0; height:100%; background:#39ff14; }
+    .fill.rebel { background:#ff005d; }
+    .row { display:flex; justify-content:space-between; align-items:center; }
+    .title, .pause, .controls, .stageIntro, .results {
+      position:fixed; inset:0; background:rgba(0,0,0,.9); color:#e5e5e5;
+      display:none; align-items:center; justify-content:center; text-align:center; padding:24px;
+    }
+    .title.visible, .pause.visible, .controls.visible, .stageIntro.visible, .results.visible { display:flex; }
+    .panel { border:2px solid #e5e5e5; padding:20px; max-width:720px; }
+    button { background:#111; border:2px solid #e5e5e5; color:#e5e5e5; padding:8px 12px; cursor:pointer; }
+    button:hover { background:#1a1a1a; }
+    .small { font-size:12px; opacity:.8; }
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <header class="hud">
-      <div>
-        <span class="tag">HP</span><div id="hpBar" class="bar"><div class="fill"></div></div>
-        <span class="tag">REBEL</span><div id="rebelBar" class="bar"><div class="fill" style="background:#b6ff00"></div></div>
+  <div id="gameWrap">
+    <canvas id="game" width="960" height="540"></canvas>
+    <div class="hud">
+      <div class="row"><div>HP</div><div id="hpLabel"></div></div>
+      <div class="bar"><div id="hpFill" class="fill" style="width:100%"></div></div>
+
+      <div class="row"><div>REBEL</div><div id="rebelLabel"></div></div>
+      <div class="bar"><div id="rebelFill" class="fill rebel" style="width:0%"></div></div>
+
+      <div class="row"><div>WAVE</div><div id="waveLabel">0</div></div>
+      <div class="row"><div>SCORE</div><div id="scoreLabel">0</div></div>
+      <div class="row small"><div>FPS</div><div id="fpsLabel">—</div></div>
+      <hr/>
+      <div class="small">
+        ←/→ move • ↑ jump • Z jab • X heavy • C dash • V REBEL • P pause • H controls
       </div>
-      <div class="hud-right">
-        <span class="tag">WAVE</span><span id="waveNum">1</span>
-        <span class="tag">SCORE</span><span id="scoreNum">0</span>
-        <span class="tag">ITEM</span><span id="itemTxt">—</span>
-      </div>
-    </header>
-
-    <div class="stage">
-      <canvas id="game" width="960" height="540"></canvas>
-
-      <!-- Title -->
-      <section id="menu-title" class="menu show">
-        <div class="card">
-          <h1>NPFU</h1>
-          <p>Basement-born brawler. Nazis, cops, and sellouts get curbstomped.</p>
-          <ul>
-            <li>← → move • ↑ / Space jump • Z jab • X heavy • C dash • V Rebel • G throw</li>
-          </ul>
-          <div class="row">
-            <button id="btnStart" class="button">Start</button>
-            <label class="row">Volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.6"/></label>
-          </div>
-        </div>
-      </section>
-
-      <!-- Pause -->
-      <section id="menu-pause" class="menu"><div class="card"><h1>Paused</h1><p>P resume • R restart • M menu</p></div></section>
-
-      <!-- Game Over -->
-      <section id="menu-over" class="menu"><div class="card"><h1>Down but not out</h1><p>R retry • M menu</p></div></section>
     </div>
+  </div>
 
-    <footer class="controls"><div>DIY build • If deploy lags, hard-refresh.</div></footer>
+  <div id="title" class="title visible">
+    <div class="panel">
+      <h1>NAZI PUNKS — F**K OFF</h1>
+      <p class="small">Basement build. Alley test. 1979–1995 attitude.</p>
+      <p>
+        <button id="startBtn">Start</button>
+        <button id="controlsBtn">Controls</button>
+      </p>
+    </div>
+  </div>
+
+  <div id="controls" class="controls">
+    <div class="panel">
+      <h2>Controls</h2>
+      <p>←/→ move • ↑ jump • Z jab • X heavy • C dash • V Rebel surge • P pause</p>
+      <p><button data-close>Back</button></p>
+    </div>
+  </div>
+
+  <div id="pause" class="pause">
+    <div class="panel">
+      <h2>Paused</h2>
+      <p>
+        <button id="resumeBtn">Resume</button>
+        <button id="resetBtn">Reset</button>
+      </p>
+    </div>
+  </div>
+
+  <div id="stageIntro" class="stageIntro">
+    <div class="panel">
+      <h2>STAGE 1 — BACK ALLEY</h2>
+      <p class="small">Lewisham echoes. Hafenstraße nerves. Keep your guard tight.</p>
+      <p><button id="goBtn">Go</button></p>
+    </div>
+  </div>
+
+  <div id="results" class="results">
+    <div class="panel">
+      <h2 id="resultsTitle">RESULTS</h2>
+      <p>Score: <span id="finalScore">0</span> • Waves: <span id="finalWaves">0</span></p>
+      <p><button id="backToTitle">Back to Title</button></p>
+    </div>
   </div>
 
   <script type="module">
-    import { boot } from "./src/main.js";
-    boot(document.getElementById("game"));
+    import { Game } from './js/engine.js';
+    import { setupInput } from './js/input.js';
+    import { buildScenes } from './js/scenes.js';
+
+    const canvas = document.getElementById('game');
+    const hud = {
+      hpFill: document.getElementById('hpFill'),
+      rebelFill: document.getElementById('rebelFill'),
+      hpLabel: document.getElementById('hpLabel'),
+      rebelLabel: document.getElementById('rebelLabel'),
+      waveLabel: document.getElementById('waveLabel'),
+      scoreLabel: document.getElementById('scoreLabel'),
+      fpsLabel: document.getElementById('fpsLabel')
+    };
+
+    const overlays = {
+      title: document.getElementById('title'),
+      controls: document.getElementById('controls'),
+      pause: document.getElementById('pause'),
+      stageIntro: document.getElementById('stageIntro'),
+      results: document.getElementById('results'),
+      startBtn: document.getElementById('startBtn'),
+      controlsBtn: document.getElementById('controlsBtn'),
+      goBtn: document.getElementById('goBtn'),
+      resumeBtn: document.getElementById('resumeBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      finalScore: document.getElementById('finalScore'),
+      finalWaves: document.getElementById('finalWaves'),
+      resultsTitle: document.getElementById('resultsTitle'),
+      backToTitle: document.getElementById('backToTitle')
+    };
+
+    const game = new Game(canvas, hud, overlays);
+    setupInput(game);
+    buildScenes(game);
   </script>
 </body>
 </html>
